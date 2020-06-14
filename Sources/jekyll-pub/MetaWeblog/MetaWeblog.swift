@@ -25,15 +25,22 @@ class MetaWeblog {
             return site.recentPosts(count)
         }
         route("metaWeblog.newPost") { (_: String, _: String, _: String, post: JekyllPost, publish: Bool) -> String in
-            return "TEST"
+            let post = try site.newPost(post, publish: publish)
+            return post.id
         }
         route("metaWeblog.editPost") { (postID: String, _: String, _: String, post: JekyllPost, publish: Bool) -> Bool in
             return true
         }
-        route("metaWeblog.deletePost") { (postID: String, _: String, _: String) -> Bool in
+        route("metaWeblog.deletePost") { (_: String, postID: String, _: String, _: String) -> Bool in
             return site.deletePost(postID)
         }
-        route("metaWeblog.deletePost") { (postID: String, _: String, _: String, publish: Bool) -> Bool in
+        route("metaWeblog.deletePost") { (_: String, postID: String, _: String, _: String, publish: Bool) -> Bool in
+            return site.deletePost(postID)
+        }
+        route("blogger.deletePost") { (_: String, postID: String, _: String, _: String) -> Bool in
+            return site.deletePost(postID)
+        }
+        route("blogger.deletePost") { (_: String, postID: String, _: String, _: String, publish: Bool) -> Bool in
             return site.deletePost(postID)
         }
         route("metaWeblog.getPost") { (postID: String, _: String, _: String) -> JekyllPost in

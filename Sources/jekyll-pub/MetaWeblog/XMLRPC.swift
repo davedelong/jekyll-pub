@@ -72,7 +72,8 @@ enum XMLRPCParam {
             let keyPairs = try members.map { xmlNode -> (String, XMLRPCParam) in
                 guard let name = xmlNode.child(at: 0)?.stringValue else { throw XMLRPCError.malformedXMLDocument }
                 guard let valueNode = xmlNode.child(at: 1) else { throw XMLRPCError.malformedXMLDocument }
-                let value = try XMLRPCParam(xmlNode: valueNode)
+                guard let valueNodeContents = valueNode.child(at: 0) else { throw XMLRPCError.malformedXMLDocument }
+                let value = try XMLRPCParam(xmlNode: valueNodeContents)
                 return (name, value)
             }
             let dict = Dictionary(uniqueKeysWithValues: keyPairs)
@@ -409,5 +410,18 @@ extension Data: XMLNodeConvertible {
     }
     func xmlNode() throws -> XMLNode {
         return XMLElement(name: "base64", stringValue: base64EncodedString())
+    }
+}
+
+// MARK: - Any
+
+extension XMLRPCParamConvertible where Self: RawRepresentable, RawValue: XMLRPCParamConvertible {
+    init(parameter: XMLRPCParam) throws {
+        let raw = try RawValue(parameter: parameter)
+        let v = try Self(rawValue: raw) ?! XMLRPCError.wrongType(Self.self, parameter)
+        self = v
+    }
+    func xmlrpcParameter() throws -> XMLRPCParam {
+        return try rawValue.xmlrpcParameter()
     }
 }

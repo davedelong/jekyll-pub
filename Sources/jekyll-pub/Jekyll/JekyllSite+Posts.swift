@@ -9,14 +9,14 @@ import Foundation
 
 extension JekyllSite {
     
-    private func posts(in folder: URL) -> Array<JekyllPost> {
+    private func posts(in folder: URL, isDrafts: Bool) -> Array<JekyllPost> {
         let enumerator = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)
         var posts = Array<JekyllPost>()
         
         if let iterator = enumerator {
             for anyURL in iterator {
                 guard let url = anyURL as? URL else { continue }
-                guard let post = try? JekyllPost(url: url) else { continue }
+                guard let post = try? JekyllPost(url: url, isPost: true, isDraftsFolder: isDrafts) else { continue }
                 posts.append(post)
             }
         }
@@ -24,11 +24,37 @@ extension JekyllSite {
     }
     
     func allDrafts() -> Array<JekyllPost> {
-        posts(in: draftsFolder)
+        posts(in: draftsFolder, isDrafts: true)
+    }
+    
+    func allPublished() -> Array<JekyllPost> {
+        posts(in: postsFolder, isDrafts: false)
     }
     
     func allPosts() -> Array<JekyllPost> {
-        return allDrafts() + posts(in: postsFolder)
+        return allDrafts() + allPublished() + allPages()
+    }
+    
+    func allPages() -> Array<JekyllPost> {
+        let enumerator = FileManager.default.enumerator(at: site.rootFolder, includingPropertiesForKeys: [.typeIdentifierKey])
+        var pages = Array<JekyllPost>()
+        
+        if let iterator = enumerator {
+            for anyURL in iterator {
+                guard let url = anyURL as? URL else { continue }
+                if url.lastPathComponent.hasPrefix("_") { iterator.skipDescendants() }
+                guard let type = (try? url.resourceValues(forKeys: [.typeIdentifierKey]))?.typeIdentifier else { continue }
+                var page: JekyllPost?
+                if UTTypeConformsTo(type as CFString, "public.html" as CFString) {
+                    page = try? JekyllPost(url: url, isPost: false, isDraftsFolder: false)
+                } else if UTTypeConformsTo(type as CFString, "net.daringfireball.markdown" as CFString) {
+                    page = try? JekyllPost(url: url, isPost: false, isDraftsFolder: false)
+                }
+                if let p = page { pages.append(p) }
+            }
+        }
+        
+        return pages
     }
     
     func allTags() -> Array<String> {
@@ -62,4 +88,40 @@ extension JekyllSite {
         }
         return false
     }
+    
+    func newPost(_ post: JekyllPost, publish: Bool) throws -> JekyllPost {
+        var filledOut = post
+        
+        filledOut["layout"] = .init("post")
+        filledOut.status = publish ? .published : .draft
+        
+        if publish == true && filledOut.publishedDate == nil {
+            filledOut.publishedDate = Date()
+        }
+        
+        let title = filledOut.title
+        let slug = String(title.filter { $0.isPunctuation == false }.flatMap { $0.isWhitespace ? "-" : $0.lowercased() })
+        
+        var baseName = slug
+        if let pubDate = filledOut.publishedDate {
+            filledOut.id = slug
+            baseName = slugDateFormatter.string(from: pubDate) + "-" + slug
+        }
+        
+        let url = (publish ? postsFolder : draftsFolder).appendingPathComponent("\(baseName).md")
+        let content = try filledOut.content()
+        
+        try content.write(to: url, atomically: true, encoding: .utf8)
+        
+        return filledOut
+    }
 }
+
+let slugDateFormatter: DateFormatter = {
+    let df = DateFormatter()
+    df.calendar = Calendar(identifier: .gregorian)
+    df.locale = Locale(identifier: "en_US_POSIX")
+    df.timeZone = .current
+    df.dateFormat = "y-MM-dd"
+    return df
+}()
