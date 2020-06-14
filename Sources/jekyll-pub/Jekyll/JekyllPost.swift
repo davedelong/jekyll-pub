@@ -21,23 +21,15 @@ let publishDateFormatter: DateFormatter = {
 
 struct JekyllPost {
     
-    struct Status: Equatable, XMLRPCParamConvertible {
+    struct Status: Equatable, Codable {
         static let published = Status(rawValue: "publish")
         static let draft = Status(rawValue: "draft")
         let rawValue: String
         
         init(rawValue: String) { self.rawValue = rawValue }
-        
-        init(parameter: XMLRPCParam) throws {
-            self.rawValue = try parameter.string ?! XMLRPCError.wrongType(Status.self, parameter)
-        }
-        
-        func xmlrpcParameter() throws -> XMLRPCParam {
-            return .string(rawValue)
-        }
     }
     
-    enum Kind: String, XMLRPCParamConvertible {
+    enum Kind: String, Codable {
         case post
         case page
     }
@@ -131,34 +123,34 @@ struct JekyllPost {
     }
 }
 
-extension JekyllPost: XMLRPCParamConvertible {
+extension JekyllPost: Codable {
     
-    init(parameter: XMLRPCParam) throws {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: AnyCodingKey.self)
         self.init()
-        let obj = try parameter.object ?! XMLRPCError.wrongType(JekyllPost.self, parameter)
-        self.title = try obj["title"]?.string ?! XMLRPCError.wrongType(String.self, obj["title"])
-        self.body = try obj["description"]?.string ?! XMLRPCError.wrongType(String.self, obj["description"])
-        if let statusParam = obj["post_status"] {
-            let status = try Status(parameter: statusParam)
-            self.status = (status == .published) ? .published : .draft
+        self.title = try c.decode(String.self, forKey: "title")
+        self.body = try c.decode(String.self, forKey: "body")
+        if let status = try c.decodeIfPresent(Status.self, forKey: "post_status") {
+            self.status = status == .published ? .published : .draft
         }
-        if let typeParam = obj["post_type"] {
-            self.kind = try Kind(parameter: typeParam)
+        if let kind = try c.decodeIfPresent(Kind.self, forKey: "post_type") {
+            self.kind = kind
         }
     }
     
-    func xmlrpcParameter() throws -> XMLRPCParam {
-        return try .object([
-            "dateCreated": .date(publishedDate ?? .distantPast),
-            "userid": .int(0),
-            "postid": .string(id),
-            "post_type": .string("post"),
-            "description": .string(body),
-            "title": .string(title),
-            "categories": .array([.string("Uncategorized")]),
-            "post_status": status.xmlrpcParameter(),
-            "mt_keywords": .array(tags.map { .string($0) })
-        ])
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: AnyCodingKey.self)
+        try c.encode(0, forKey: "userid")
+        try c.encode(id, forKey: "postid")
+        try c.encode(kind, forKey: "post_type")
+        try c.encode(body, forKey: "description")
+        try c.encode(title, forKey: "title")
+        try c.encode(["Uncategorized"], forKey: "categories")
+        try c.encode(status, forKey: "post_status")
+        try c.encode(tags, forKey: "mt_keywords")
+        if let d = publishedDate {
+            try c.encode(d, forKey: "dateCreated")
+        }
     }
     
 }

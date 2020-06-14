@@ -27,7 +27,7 @@ extension JekyllSite {
             try? FileManager.default.removeItem(at: url)
         }
         
-        try media.data.write(to: url)
+        try media.bits.write(to: url)
         return JekyllMediaResult(name: name, type: media.type, siteURL: "/files/\(name)")
     }
     

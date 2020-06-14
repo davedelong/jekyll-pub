@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct JekyllCategory: XMLRPCParamConvertible {
+struct JekyllCategory {
     static let uncategorized = JekyllCategory(id: 1, parentID: 0, name: "Uncategorized")
     
     let id: Int
@@ -19,20 +19,15 @@ struct JekyllCategory: XMLRPCParamConvertible {
         self.parentID = parentID
         self.name = name
     }
-    
-    init(parameter: XMLRPCParam) throws {
-        guard let obj = parameter.object else { throw XMLRPCError.wrongType(JekyllCategory.self, parameter) }
-        id = try obj["categoryId"]?.int ?! XMLRPCError.wrongType(Int.self, obj["categoryId"])
-        parentID = obj["parentId"]?.int ?? 0
-        name = try obj["categoryName"]?.string ?! XMLRPCError.wrongType(String.self, obj["categoryName"])
-    }
-    func xmlrpcParameter() throws -> XMLRPCParam {
-        return .object([
-            "categoryId": .int(id),
-            "parentId": .int(parentID),
-            "categoryName": .string(name),
-            "description": .string(name),
-            "categoryDescription": .string("")
-        ])
+}
+
+extension JekyllCategory: Encodable {
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: AnyCodingKey.self)
+        try c.encode(id, forKey: "categoryId")
+        try c.encode(parentID, forKey: "parentId")
+        try c.encode(name, forKey: "categoryName")
+        try c.encode(name, forKey: "description")
+        try c.encode("", forKey: "categoryDescription")
     }
 }

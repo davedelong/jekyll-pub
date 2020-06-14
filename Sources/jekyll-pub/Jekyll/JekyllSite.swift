@@ -21,15 +21,3 @@ struct JekyllSite {
     }
     
 }
-
-extension JekyllSite: XMLRPCParamConvertible {
-    init(parameter: XMLRPCParam) throws {
-        let path = try Path(parameter: parameter)
-        var exists: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: path.fileURL.path, isDirectory: &exists) && exists.boolValue == true else {
-            throw CocoaError(CocoaError.fileNoSuchFile)
-        }
-        
-        self.init(siteFolder: path)
-    }
-}

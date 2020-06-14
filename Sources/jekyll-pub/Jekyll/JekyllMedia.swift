@@ -7,32 +7,23 @@
 
 import Foundation
 
-struct JekyllMedia: XMLRPCParamConvertible {
+struct JekyllMedia: Decodable {
     let name: String
     let type: String
-    let data: Data
-    let overwrite: Bool
-    
-    init(parameter: XMLRPCParam) throws {
-        let obj = try parameter.object ?! XMLRPCError.wrongType(JekyllMedia.self, parameter)
-        name = try obj["name"]?.string ?! XMLRPCError.wrongType(String.self, obj["name"])
-        type = try obj["type"]?.string ?! XMLRPCError.wrongType(String.self, obj["type"])
-        data = try obj["bits"]?.data ?! XMLRPCError.wrongType(Data.self, obj["bits"])
-        overwrite = obj["overwrite"]?.bool ?? true
-    }
+    let bits: Data
+    var overwrite: Bool = true
 }
 
-struct JekyllMediaResult: XMLRPCParamConvertible {
+struct JekyllMediaResult: Encodable {
     let name: String
     let type: String
     let siteURL: String
     
-    func xmlrpcParameter() throws -> XMLRPCParam {
-        return .object([
-            "id": .string(name),
-            "file": .string(name),
-            "type": .string(type),
-            "url": .string(siteURL)
-        ])
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: AnyCodingKey.self)
+        try c.encode(name, forKey: "id")
+        try c.encode(name, forKey: "file")
+        try c.encode(type, forKey: "type")
+        try c.encode(siteURL, forKey: "url")
     }
 }

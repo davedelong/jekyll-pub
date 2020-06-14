@@ -63,6 +63,10 @@ extension JekyllSite {
         return all.sorted()
     }
     
+    func getPost(_ postID: String) throws -> JekyllPost {
+        return try allPosts().first(where: { $0.id == postID }) ?! CocoaError(CocoaError.fileNoSuchFile)
+    }
+    
     func recentPosts(_ count: Int) -> Array<JekyllPost> {
         let sorted = allPosts().sorted(by: { p1, p2 -> Bool in
             switch (p1.publishedDate, p2.publishedDate) {
