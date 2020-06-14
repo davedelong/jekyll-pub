@@ -100,7 +100,7 @@ extension JekyllSite {
         }
         
         let title = filledOut.title
-        let slug = String(title.filter { $0.isPunctuation == false }.flatMap { $0.isWhitespace ? "-" : $0.lowercased() })
+        let slug = title.slugified()
         
         var baseName = slug
         if let pubDate = filledOut.publishedDate {

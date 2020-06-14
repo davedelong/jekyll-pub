@@ -29,6 +29,7 @@ class MetaWeblog {
             return post.id
         }
         route("metaWeblog.editPost") { (postID: String, _: String, _: String, post: JekyllPost, publish: Bool) -> Bool in
+            // TODO:
             return true
         }
         route("metaWeblog.deletePost") { (_: String, postID: String, _: String, _: String) -> Bool in
@@ -49,8 +50,8 @@ class MetaWeblog {
             }
             return post
         }
-        route("metaWeblog.newMediaObject") { (_: String, _: String, _: String, objects: Array<JekyllMedia>) -> Array<JekyllMediaResult> in
-            return []
+        route("metaWeblog.newMediaObject") { (_: String, _: String, _: String, media: JekyllMedia) -> JekyllMediaResult in
+            return try site.saveMedia(media)
         }
     }
     

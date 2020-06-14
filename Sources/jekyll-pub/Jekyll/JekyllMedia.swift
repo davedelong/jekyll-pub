@@ -25,14 +25,14 @@ struct JekyllMedia: XMLRPCParamConvertible {
 struct JekyllMediaResult: XMLRPCParamConvertible {
     let name: String
     let type: String
-    let url: URL
+    let siteURL: String
     
     func xmlrpcParameter() throws -> XMLRPCParam {
         return .object([
-            "id": .string(url.path),
-            "file": .string(url.lastPathComponent),
+            "id": .string(name),
+            "file": .string(name),
             "type": .string(type),
-            "url": .string(url.absoluteString)
+            "url": .string(siteURL)
         ])
     }
 }
