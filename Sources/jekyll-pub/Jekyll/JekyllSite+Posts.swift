@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import Ink
 
 extension JekyllSite {
     
@@ -14,14 +13,11 @@ extension JekyllSite {
         let enumerator = FileManager.default.enumerator(at: postsFolder, includingPropertiesForKeys: nil)
         var posts = Array<JekyllPost>()
         
-        let parser = MarkdownParser()
         if let iterator = enumerator {
             for anyURL in iterator {
                 guard let url = anyURL as? URL else { continue }
-                guard let contents = try? String(contentsOf: url) else { continue }
-                let markdown = parser.parse(contents)
-                
-                posts.append(JekyllPost(url: url, markdown: markdown))
+                guard let post = try? JekyllPost(url: url) else { continue }
+                posts.append(post)
             }
         }
         return posts
@@ -33,4 +29,15 @@ extension JekyllSite {
         return all.sorted()
     }
     
+    func recentPosts(_ count: Int) -> Array<JekyllPost> {
+        let sorted = allPosts().sorted(by: { p1, p2 -> Bool in
+            switch (p1.publishedDate, p2.publishedDate) {
+                case (nil, nil): return false
+                case (nil, _): return true
+                case (_, nil): return false
+                case (.some(let l), .some(let r)): return l < r
+            }
+        })
+        return sorted.suffix(count)
+    }
 }

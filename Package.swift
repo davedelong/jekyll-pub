@@ -10,13 +10,13 @@ let package = Package(
         .executable(name: "jekyll-pub", targets: ["jekyll-pub"])
     ],
     dependencies: [
-        .package(url: "https://github.com/johnsundell/Ink.git", from: "0.1.0"),
         .package(url: "https://github.com/httpswift/Swifter.git", .upToNextMajor(from: "1.4.7")),
+        .package(url: "https://github.com/jpsim/Yams.git", from: "3.0.1"),
     ],
     targets: [
         .target(name: "jekyll-pub", dependencies: [
-            "Ink",
             "Swifter",
+            "Yams"
         ]),
     ]
 )

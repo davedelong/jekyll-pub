@@ -8,13 +8,40 @@
 import Foundation
 import Swifter
 
-struct MetaWeblog {
+class MetaWeblog {
     let server = HttpServer()
-    let sites: Array<JekyllSite>
+    private var routes = Array<MethodRoute>()
     
-    init(sites: [JekyllSite]) {
-        self.sites = sites
+    init(site: JekyllSite) {
         server.post["/"] = self.handle
+        
+        route("metaWeblog.getCategories") { (_: String, _: String, _: String) -> Array<JekyllCategory> in
+            return site.allCategories()
+        }
+        route("metaWeblog.getRecentPosts") { (_: String, _: String, _: String) -> Array<JekyllPost> in
+            return site.recentPosts(10)
+        }
+        route("metaWeblog.getRecentPosts") { (_: String, _: String, _: String, count: Int) -> Array<JekyllPost> in
+            return site.recentPosts(count)
+        }
+        route("metaWeblog.newPost") { (_: String, _: String, _: String, post: JekyllPost, publish: Bool) -> String in
+            return "TEST"
+        }
+        route("metaWeblog.editPost") { (_: String, _: String, _: String, post: JekyllPost, publish: Bool) -> Bool in
+            return true
+        }
+        route("metaWeblog.deletePost") { (postID: String, _: String, _: String, post: JekyllPost, publish: Bool) -> Bool in
+            return true
+        }
+        route("metaWeblog.getPost") { (postID: String, _: String, _: String) -> JekyllPost in
+            guard let post = site.allPosts().first(where: { $0.id == postID }) else {
+                throw CocoaError(CocoaError.fileNoSuchFile)
+            }
+            return post
+        }
+        route("metaWeblog.newMediaObject") { (_: String, _: String, _: String, objects: Array<JekyllMedia>) -> Array<JekyllMediaResult> in
+            return []
+        }
     }
     
     func run() throws {
@@ -23,10 +50,53 @@ struct MetaWeblog {
     }
     
     private func handle(_ request: HttpRequest) -> HttpResponse {
-        guard let method = MethodCall(httpRequest: request) else {
-            return .badRequest(nil)
+        do {
+            let method = try MethodCall(request: request)
+            guard let route = self.route(for: method) else {
+                return .notFound
+            }
+            return try route.handler(method.parameters)
+        } catch {
+            return .badRequest(.text("\(error)"))
         }
-        
-        return .ok(.text(method.methodName))
     }
+    
+    private func route(for method: MethodCall) -> MethodRoute? {
+        return routes.first(where: { $0.name == method.methodName && $0.parameterCount == method.parameters.count })
+    }
+}
+
+typealias PC = XMLRPCParamConvertible
+extension MetaWeblog {
+    
+    func route<A: PC, B: PC, C: PC, R: PC>(_ name: String, to handler: @escaping (A, B, C) throws -> R) {
+        self.routes.append(MethodRoute(name: name, parameterCount: 3) { params -> R in
+            let v1 = try A(parameter: params[0])
+            let v2 = try B(parameter: params[1])
+            let v3 = try C(parameter: params[2])
+            return try handler(v1, v2, v3)
+        })
+    }
+    
+    func route<A: PC, B: PC, C: PC, D: PC, R: PC>(_ name: String, to handler: @escaping (A, B, C, D) throws -> R) {
+        self.routes.append(MethodRoute(name: name, parameterCount: 4) { params -> R in
+            let v1 = try A(parameter: params[0])
+            let v2 = try B(parameter: params[1])
+            let v3 = try C(parameter: params[2])
+            let v4 = try D(parameter: params[3])
+            return try handler(v1, v2, v3, v4)
+        })
+    }
+    
+    func route<A: PC, B: PC, C: PC, D: PC, E: PC, R: PC>(_ name: String, to handler: @escaping (A, B, C, D, E) throws -> R) {
+        self.routes.append(MethodRoute(name: name, parameterCount: 5) { params -> R in
+            let v1 = try A(parameter: params[0])
+            let v2 = try B(parameter: params[1])
+            let v3 = try C(parameter: params[2])
+            let v4 = try D(parameter: params[3])
+            let v5 = try E(parameter: params[4])
+            return try handler(v1, v2, v3, v4, v5)
+        })
+    }
+    
 }

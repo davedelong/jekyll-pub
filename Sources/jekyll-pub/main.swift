@@ -1,9 +1,5 @@
 import Foundation
 
-let site = JekyllSite(
-    id: "davedelong",
-    siteFolder: URL(fileURLWithPath: "/Users/dave/Documents/davedelong.com")
-)
-
-let server = MetaWeblog(sites: [site])
+let site = JekyllSite(siteFolder: "~/Documents/davedelong.com")
+let server = MetaWeblog(site: site)
 try server.run()

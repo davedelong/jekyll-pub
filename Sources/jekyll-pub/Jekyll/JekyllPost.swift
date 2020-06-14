@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import Ink
+import Yams
 
 let publishDateFormatter: DateFormatter = {
     let df = DateFormatter()
@@ -18,69 +18,93 @@ let publishDateFormatter: DateFormatter = {
 }()
 
 struct JekyllPost {
-    let url: URL
-    var markdown: Markdown
+    
+    struct Status {
+        static let published = Status(rawValue: "publish")
+        static let draft = Status(rawValue: "draft")
+        let rawValue: String
+    }
+    
+    var yaml: Yams.Node
+    var body: String
+    
+    subscript(key: String) -> Yams.Node? {
+        get {
+            return yaml.mapping?[key]
+        }
+        set {
+            yaml.mapping?[key] = newValue
+        }
+    }
     
     var id: String {
-        get { markdown.metadata["id"] ?? "NONE" }
-        set { markdown.metadata["id"] = newValue }
+        get { self["id"]?.string ?? "NONE" }
+        set { self["id"] = .init(newValue) }
     }
     
     var tags: Array<String> {
         get {
-            guard let tags = markdown.metadata["tags"] else { return [] }
-            let all: Array<String>
-            if tags.hasPrefix("[") && tags.hasSuffix("]") {
-                let inner = tags.dropFirst().dropLast()
-                let pieces = inner.components(separatedBy: ",")
-                all = pieces.map { $0.trimmingCharacters(in: .whitespaces) }
-            } else {
-                all = [tags]
-            }
-            return all.filter { $0.isEmpty == false }
+            return self["tags"]?.array().compactMap(\.string) ?? []
         }
         set {
-            let cleaned = newValue
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { $0.isEmpty == false }
-            let escaped = cleaned.map { tag -> String in
-                if tag.hasPrefix("\"") && tag.hasSuffix("\"") { return tag }
-                if tag.contains(where: \.isWhitespace) == false { return tag }
-                return "\"\(tag)\""
-            }
-            let joined = escaped.joined(separator: ", ")
-            markdown.metadata["tags"] = "[" + joined + "]"
+            self["tags"] = .init(newValue.map { .init($0) })
         }
     }
     
     var title: String {
-        get {
-            let raw = markdown.metadata["title"] ?? ""
-            return raw.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
-        }
-        set {
-            markdown.metadata["title"] = "\"\(newValue)\""
-        }
+        get { self["title"]?.string ?? "NONE" }
+        set { self["title"] = .init(newValue) }
     }
     
     var publishedDate: Date? {
         get {
-            guard let pub = markdown.metadata["published"] else { return nil }
+            guard let pub = self["published"]?.string else { return nil }
             return publishDateFormatter.date(from: pub)
         }
         set {
             if let new = newValue {
                 let str = publishDateFormatter.string(from: new)
-                markdown.metadata["published"] = str
+                self["published"] = .init(str)
             } else {
-                markdown.metadata["published"] = nil
+                self["published"] = nil
             }
         }
     }
     
-    init(url: URL, markdown: Markdown) {
-        self.url = url
-        self.markdown = markdown
+    init(url: URL) throws {
+        let contents = try String(contentsOf: url)
+        let nsContents = contents as NSString
+        let ymlRegex = try NSRegularExpression(pattern: "^---[\r\n](.*?)---[\r\n]+(.*)$", options: [.dotMatchesLineSeparators, .anchorsMatchLines])
+        
+        var yaml: Yams.Node?
+        var body: String?
+        if let match = ymlRegex.firstMatch(in: contents, options: [], range: NSRange(location: 0, length: nsContents.length)) {
+            let extracted = nsContents.substring(with: match.range(at: 1))
+            yaml = try Yams.compose(yaml: extracted)
+            
+            body = nsContents.substring(with: match.range(at: 2))
+        }
+        
+        self.yaml = yaml ?? [:]
+        self.body = body ?? contents
+    }
+    
+}
+
+extension JekyllPost: XMLRPCParamConvertible {
+    
+    func xmlrpcParameter() throws -> XMLRPCParam {
+        return .object([
+            "dateCreated": .date(publishedDate ?? .distantPast),
+            "userid": .int(0),
+            "postid": .string(id),
+            "post_type": .string("post"),
+            "description": .string(body),
+            "title": .string(title),
+            "categories": .array([.string("Uncategorized")]),
+            "post_status": .string("publish"),
+            "mt_keywords": .array(tags.map { .string($0) })
+        ])
     }
     
 }
