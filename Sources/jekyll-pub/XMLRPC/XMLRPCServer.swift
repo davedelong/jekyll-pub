@@ -24,9 +24,11 @@ class XMLRPCServer {
         addRouteHandler(MetaWeblog.NewMediaObject.self)
         
         addRouteHandler(Wordpress.GetAuthors.self)
-        addRouteHandler(Wordpress.GetUser.self)
-        addRouteHandler(Wordpress.GetUsersBlogs.self)
+        addRouteHandler(Wordpress.GetCategories.self)
+        addRouteHandler(Wordpress.NewCategory.self)
         addRouteHandler(Wordpress.GetUsers.self)
+        addRouteHandler(Wordpress.GetPosts.self)
+        addRouteHandler(Wordpress.GetTags.self)
     }
     
     func run() throws {
@@ -36,28 +38,32 @@ class XMLRPCServer {
     
     private func handleXMLRPC(_ request: HttpRequest) -> HttpResponse {
         let body = Data(request.body)
-        do {
-            var handler: XMLRPCRoute.Executor?
-            for possibleRoute in xmlrpcRoutes {
-                handler = try? possibleRoute.decode(body)
-                if handler != nil {
-                    print("Chose route: \(possibleRoute)")
-                    break
-                }
+        var handler: XMLRPCRoute.Executor?
+        for possibleRoute in xmlrpcRoutes {
+            handler = try? possibleRoute.decode(body)
+            if handler != nil {
+                print("Chose route: \(possibleRoute)")
+                break
             }
-            
-            if let h = handler {
+        }
+        
+        if let h = handler {
+            do {
                 let responseBody = try h(site)
-                if let s = String(data: responseBody, encoding: .utf8) {
-                    print("BODY:\n\(s)")
-                }
                 return .ok(.data(responseBody))
-            } else {
-                return .unauthorized
+            } catch let fault as XMLRPCFault {
+                if let encodedFault = try? XMLRPCEncoder().encode(fault) {
+                    return .ok(.data(encodedFault))
+                } else {
+                    print("cannot encode fault: \(fault)")
+                    return .internalServerError
+                }
+            } catch {
+                print("Unknown error: \(error)")
+                return .internalServerError
             }
-        } catch {
-            // attempting to execute the handler failed
-            return .internalServerError
+        } else {
+            return .unauthorized
         }
     }
     

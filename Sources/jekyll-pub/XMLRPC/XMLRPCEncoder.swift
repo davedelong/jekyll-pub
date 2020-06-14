@@ -14,12 +14,18 @@ class XMLRPCEncoder {
         let root = XMLElement(name: "methodResponse")
         
         do {
+            if let fault = value as? XMLRPCFault { throw fault }
             let parent = XMLElement(name: "param")
             var valueEncoder = _XMLRPCValueEncoder(parent: parent, codingPath: [])
             try valueEncoder.encode(value)
             
             let params = XMLElement(name: "params", child: parent)
             root.addChild(params)
+        } catch let fault as XMLRPCFault {
+            let parent = XMLElement(name: "fault")
+            root.addChild(parent)
+            var valueEncoder = _XMLRPCValueEncoder(parent: parent, codingPath: [])
+            try valueEncoder.encode(fault)
         } catch {
             let string = XMLElement(name: "string", stringValue: error.localizedDescription)
             let value = XMLElement(name: "value", child: string)

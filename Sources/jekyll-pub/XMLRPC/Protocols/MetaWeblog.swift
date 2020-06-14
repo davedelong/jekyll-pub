@@ -11,7 +11,7 @@ enum MetaWeblog {
 
     struct GetCategories: XMLRPCMethod {
         typealias XMLRPCMethodResult = Array<JekyllCategory>
-        static let methodCalls: Set<String> = ["metaWeblog.getCategories", "wp.getCategories"]
+        static let methodCalls: Set<String> = ["metaWeblog.getCategories"]
         
         let blogID: String
         let userName: String
