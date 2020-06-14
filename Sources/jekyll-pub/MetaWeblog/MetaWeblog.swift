@@ -27,11 +27,14 @@ class MetaWeblog {
         route("metaWeblog.newPost") { (_: String, _: String, _: String, post: JekyllPost, publish: Bool) -> String in
             return "TEST"
         }
-        route("metaWeblog.editPost") { (_: String, _: String, _: String, post: JekyllPost, publish: Bool) -> Bool in
+        route("metaWeblog.editPost") { (postID: String, _: String, _: String, post: JekyllPost, publish: Bool) -> Bool in
             return true
         }
-        route("metaWeblog.deletePost") { (postID: String, _: String, _: String, post: JekyllPost, publish: Bool) -> Bool in
-            return true
+        route("metaWeblog.deletePost") { (postID: String, _: String, _: String) -> Bool in
+            return site.deletePost(postID)
+        }
+        route("metaWeblog.deletePost") { (postID: String, _: String, _: String, publish: Bool) -> Bool in
+            return site.deletePost(postID)
         }
         route("metaWeblog.getPost") { (postID: String, _: String, _: String) -> JekyllPost in
             guard let post = site.allPosts().first(where: { $0.id == postID }) else {

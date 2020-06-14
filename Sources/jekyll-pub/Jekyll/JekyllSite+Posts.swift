@@ -9,8 +9,8 @@ import Foundation
 
 extension JekyllSite {
     
-    func allPosts() -> Array<JekyllPost> {
-        let enumerator = FileManager.default.enumerator(at: postsFolder, includingPropertiesForKeys: nil)
+    private func posts(in folder: URL) -> Array<JekyllPost> {
+        let enumerator = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)
         var posts = Array<JekyllPost>()
         
         if let iterator = enumerator {
@@ -21,6 +21,14 @@ extension JekyllSite {
             }
         }
         return posts
+    }
+    
+    func allDrafts() -> Array<JekyllPost> {
+        posts(in: draftsFolder)
+    }
+    
+    func allPosts() -> Array<JekyllPost> {
+        return allDrafts() + posts(in: postsFolder)
     }
     
     func allTags() -> Array<String> {
@@ -39,5 +47,19 @@ extension JekyllSite {
             }
         })
         return sorted.suffix(count)
+    }
+    
+    func deletePost(_ id: String) -> Bool {
+        for post in allPosts() {
+            guard post.id == id else { continue }
+            guard let url = post.fileURL else { continue }
+            do {
+                try FileManager.default.removeItem(at: url)
+                return true
+            } catch {
+                continue
+            }
+        }
+        return false
     }
 }

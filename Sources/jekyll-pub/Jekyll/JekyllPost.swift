@@ -27,6 +27,7 @@ struct JekyllPost {
     
     var yaml: Yams.Node
     var body: String
+    var fileURL: URL?
     
     subscript(key: String) -> Yams.Node? {
         get {
@@ -87,6 +88,7 @@ struct JekyllPost {
         
         self.yaml = yaml ?? [:]
         self.body = body ?? contents
+        self.fileURL = url
     }
     
 }

@@ -19,6 +19,7 @@ struct MethodCall {
         }
         self.methodName = name
         
+        // i'm cheating
         let params = try d.nodes(forXPath: "//methodCall/params/param/value/.")
         parameters = try params.map { valueNode -> XMLRPCParam in
             guard let value = valueNode.child(at: 0) else { throw XMLRPCError.malformedXMLDocument }
