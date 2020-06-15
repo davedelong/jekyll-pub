@@ -92,17 +92,18 @@ enum Wordpress {
         let blogID: String
         let userName: String
         let password: String
-        let post: JekyllPost
+        let post: SavePost
         
         init(from decoder: Decoder) throws {
             var c = try decoder.unkeyedContainer()
             blogID = try c.decode(String.self)
             userName = try c.decode(String.self)
             password = try c.decode(String.self)
-            post = try c.decode(JekyllPost.self)
+            post = try c.decode(SavePost.self)
         }
         
         func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
+            let post = JekyllPost(self.post)
             return try site.newPost(post, publish: true).id
         }
     }
@@ -340,6 +341,15 @@ extension Wordpress {
         let post_content: String
         let terms: Array<Term>
     }
+    struct SavePost: Decodable {
+        let post_id: String?
+        let post_title: String
+        let post_date_gmt: Date?
+        let post_type: String?
+        let post_status: String
+        let post_content: String
+        let terms_names: Dictionary<String, Array<String>>
+    }
     struct Term: Codable {
         let term_id: String
         let name: String
@@ -365,5 +375,17 @@ extension Wordpress.Post {
         post_author = "0"
         post_content = p.body
         terms = p.tags.map { Wordpress.Term(term_id: $0, name: $0, slug: $0.slugified()) }
+    }
+}
+extension JekyllPost {
+    init(_ p: Wordpress.SavePost) {
+        self.init()
+        title = p.post_title
+        id = p.post_id ?? title.slugified()
+        publishedDate = p.post_date_gmt
+        kind = p.post_type.flatMap { Kind(rawValue: $0) } ?? .post
+        status = Status(rawValue: p.post_status) ?? .publish
+        body = p.post_content
+        tags = p.terms_names["post_tag"] ?? []
     }
 }
