@@ -15,22 +15,19 @@ class XMLRPCEncoder {
         
         do {
             if let fault = value as? XMLRPCFault { throw fault }
-            let parent = XMLElement(name: "param")
-            var valueEncoder = _XMLRPCValueEncoder(parent: parent, codingPath: [])
+            let param = XMLElement(name: "param")
+            var valueEncoder = _XMLRPCValueEncoder(parent: param, codingPath: [])
             try valueEncoder.encode(value)
             
-            let params = XMLElement(name: "params", child: parent)
-            root.addChild(params)
+            root.addElement("params", child: param)
         } catch let fault as XMLRPCFault {
-            let parent = XMLElement(name: "fault")
-            root.addChild(parent)
-            var valueEncoder = _XMLRPCValueEncoder(parent: parent, codingPath: [])
+            let faultNode = root.addElement("fault")
+            var valueEncoder = _XMLRPCValueEncoder(parent: faultNode, codingPath: [])
             try valueEncoder.encode(fault)
         } catch {
-            let string = XMLElement(name: "string", stringValue: error.localizedDescription)
-            let value = XMLElement(name: "value", child: string)
-            let fault = XMLElement(name: "fault", child: value)
-            root.addChild(fault)
+            let fault = root.addElement("fault")
+            let value = fault.addElement("value")
+            value.addElement("string", stringValue: error.localizedDescription)
         }
         
         let document = XMLDocument(rootElement: root)
@@ -84,9 +81,7 @@ private struct _XMLRPCValueEncoder: SingleValueEncodingContainer {
     init(parent: XMLElement, codingPath: [CodingKey]) {
         var actualParent = parent
         if actualParent.name != "value" {
-            let value = XMLElement(name: "value")
-            parent.addChild(value)
-            actualParent = value
+            actualParent = parent.addElement("value")
         }
         self.parent = actualParent
         self.codingPath = codingPath
@@ -96,8 +91,7 @@ private struct _XMLRPCValueEncoder: SingleValueEncodingContainer {
         guard parent.childCount == 0 else {
             throw EncodingError.valueAlreadyEncoded(string, parent: parent, codingPath)
         }
-        let element = XMLElement(name: node, stringValue: string)
-        parent.addChild(element)
+        parent.addElement(node, stringValue: string)
     }
     
     mutating func encodeNil() throws { throw EncodingError.cannotEncode(NSNull(), parent: parent, codingPath) }
@@ -150,25 +144,21 @@ private struct _XMLRPCUnkeyedValueEncoder: UnkeyedEncodingContainer {
         self.data = XMLElement(name: "data")
         self.codingPath = codingPath
         
-        let array = XMLElement(name: "array", child: data)
-        parent.addChild(array)
+        parent.addElement("array", child: data)
     }
     
     mutating func encodeNil() throws { throw EncodingError.cannotEncode(NSNull(), parent: data, codingPath) }
     
     mutating func nestedContainer<NestedKey: CodingKey>(keyedBy keyType: NestedKey.Type) -> KeyedEncodingContainer<NestedKey> {
-        let value = XMLElement(name: "value")
         let path = currentPath
-        
-        data.addChild(value)
+        let value = data.addElement("value")
         let container = _XMLRPCKeyedValueEncoder<NestedKey>(parent: value, codingPath: path)
         return KeyedEncodingContainer(container)
     }
     
     mutating func nestedUnkeyedContainer() -> UnkeyedEncodingContainer {
-        let value = XMLElement(name: "value")
         let path = currentPath
-        data.addChild(value)
+        let value = data.addElement("value")
         return _XMLRPCUnkeyedValueEncoder(parent: value, codingPath: path)
     }
     
@@ -177,9 +167,8 @@ private struct _XMLRPCUnkeyedValueEncoder: UnkeyedEncodingContainer {
     }
     
     mutating func encode<T>(_ value: T) throws where T : Encodable {
-        let valueNode = XMLElement(name: "value")
         let path = currentPath
-        data.addChild(valueNode)
+        let valueNode = data.addElement("value")
         var encoder = _XMLRPCValueEncoder(parent: valueNode, codingPath: path)
         try encoder.encode(value)
     }
@@ -197,10 +186,7 @@ private struct _XMLRPCKeyedValueEncoder<Key: CodingKey>: KeyedEncodingContainerP
         self.root = parent
         self.codingPath = codingPath
         
-        let structNode = XMLElement(name: "struct")
-        root.addChild(structNode)
-        
-        self.container = structNode
+        self.container = root.addElement("struct")
     }
     
     private mutating func claimKey(_ key: Key, for value: Any) throws {
@@ -214,8 +200,7 @@ private struct _XMLRPCKeyedValueEncoder<Key: CodingKey>: KeyedEncodingContainerP
     
     mutating func encode<T>(_ value: T, forKey key: Key) throws where T : Encodable {
         try claimKey(key, for: value)
-        let member = XMLElement(name: "member")
-        container.addChild(member)
+        let member = container.addElement("member")
         var encoder = _XMLRPCValueEncoder(parent: member, codingPath: codingPath + [key])
         try encoder.encode(value)
         
@@ -225,11 +210,9 @@ private struct _XMLRPCKeyedValueEncoder<Key: CodingKey>: KeyedEncodingContainerP
     
     mutating func nestedContainer<NestedKey: CodingKey>(keyedBy keyType: NestedKey.Type, forKey key: Key) -> KeyedEncodingContainer<NestedKey> where NestedKey : CodingKey {
         try! claimKey(key, for: "KeyedEncodingContainer<\(keyType)>")
-        let member = XMLElement(name: "member")
-        let name = XMLElement(name: "name", stringValue: key.stringValue)
-        member.addChild(name)
-        let value = XMLElement(name: "value")
-        member.addChild(value)
+        let member = container.addElement("member")
+        member.addElement("name", stringValue: key.stringValue)
+        let value = member.addElement("value")
         
         let container = _XMLRPCKeyedValueEncoder<NestedKey>(parent: value, codingPath: codingPath + [key])
         return KeyedEncodingContainer(container)
@@ -237,11 +220,9 @@ private struct _XMLRPCKeyedValueEncoder<Key: CodingKey>: KeyedEncodingContainerP
     
     mutating func nestedUnkeyedContainer(forKey key: Key) -> UnkeyedEncodingContainer {
         try! claimKey(key, for: "UnkeyedEncodingContainer")
-        let member = XMLElement(name: "member")
-        let name = XMLElement(name: "name", stringValue: key.stringValue)
-        member.addChild(name)
-        let value = XMLElement(name: "value")
-        member.addChild(value)
+        let member = container.addElement("member")
+        member.addElement("name", stringValue: key.stringValue)
+        let value = member.addElement("value")
         
         return _XMLRPCUnkeyedValueEncoder(parent: value, codingPath: codingPath + [key])
     }

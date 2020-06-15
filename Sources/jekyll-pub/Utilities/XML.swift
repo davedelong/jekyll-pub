@@ -18,4 +18,25 @@ extension XMLElement {
         self.init(name: name)
         if let c = child { self.addChild(c) }
     }
+    
+    @discardableResult
+    func addElement(_ name: String, stringValue: String? = nil) -> XMLElement {
+        let e = XMLElement(name: name, stringValue: stringValue)
+        addChild(e)
+        return e
+    }
+    
+    @discardableResult
+    func addElement(_ name: String, child: XMLNode) -> XMLElement {
+        let e = XMLElement(name: name, child: child)
+        addChild(e)
+        return e
+    }
+    
+    @discardableResult
+    func addElement(_ name: String, children: Array<XMLNode>) -> XMLElement {
+        let e = XMLElement(name: name, children: children)
+        addChild(e)
+        return e
+    }
 }
