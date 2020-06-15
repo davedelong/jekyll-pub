@@ -89,10 +89,7 @@ class XMLRPCServer {
     
     private func methodCall(for body: Data) throws -> String {
         let d = try XMLDocument(data: body, options: [])
-        guard let name = (try d.nodes(forXPath: "//methodCall/methodName")).first?.stringValue else {
-            throw DecodingError.missingChildNode(d.rootElement()!, "methodName", [])
-        }
-        return name
+        return try d.nodes(forXPath: "//methodCall/methodName").first?.stringValue ?! DecodingError.missingChildNode(d.rootElement()!, "methodName", [])
     }
     
     func addRouteHandler<T: XMLRPCMethod>(_ type: T.Type) {

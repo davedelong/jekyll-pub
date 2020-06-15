@@ -109,11 +109,13 @@ private struct _XMLRPCKeyedDecoder<Key: CodingKey>: KeyedDecodingContainerProtoc
         
         var map = Dictionary<String, XMLNode>()
         for member in members {
-            guard let nameNode = member.child(at: 0) else { throw DecodingError.missingChildNode(node, 0, path) }
+            let nameNode = try member.child(at: 0) ?! DecodingError.missingChildNode(node, 0, path)
             guard nameNode.name == "name" else { throw DecodingError.wrongNodeName(nameNode, expected: "name", path) }
-            guard let name = nameNode.stringValue else { throw DecodingError.missingContents(nameNode, path) }
-            guard let valueNode = member.child(at: 1) else { throw DecodingError.missingChildNode(node, 1, path) }
+            let name = try nameNode.stringValue ?! DecodingError.missingContents(nameNode, path)
+            
+            let valueNode = try member.child(at: 1) ?! DecodingError.missingChildNode(node, 1, path)
             guard valueNode.name == "value" else { throw DecodingError.wrongNodeName(valueNode, expected: "value", path) }
+            
             map[name] = valueNode
         }
         self.rootNode = node
@@ -132,12 +134,9 @@ private struct _XMLRPCKeyedDecoder<Key: CodingKey>: KeyedDecodingContainerProtoc
     }
     
     private func getSingleChild(_ key: Key) throws -> XMLNode {
-        guard let valueNode = valueNodes[key.stringValue] else {
-            throw DecodingError.keyNotFound(key, DecodingError.Context(codingPath: codingPath, debugDescription: "No member with name '\(key.stringValue)'"))
-        }
-        guard let child = valueNode.child(at: 0) else { throw DecodingError.missingChildNode(valueNode, 0, codingPath + [key]) }
-        guard child.name == "value" else { throw DecodingError.wrongNodeName(child, expected: "value", codingPath + [key]) }
-        return child
+        let valueNode = try valueNodes[key.stringValue] ?! DecodingError.keyNotFound(key, DecodingError.Context(codingPath: codingPath, debugDescription: "No member with name '\(key.stringValue)'"))
+        
+        return try valueNode.child(at: 0) ?! DecodingError.missingChildNode(valueNode, 0, codingPath + [key])
     }
     
     func decode<T>(_ type: T.Type, forKey key: Key) throws -> T where T : Decodable {
@@ -225,7 +224,6 @@ private struct _XMLRPCUnkeyedDecoder: UnkeyedDecodingContainer {
         return _XMLRPCDecoder(node: root, path: codingPath)
     }
     
-    
 }
 
 private struct _XMLRPCSingleValueDecoder: SingleValueDecodingContainer {
@@ -242,60 +240,49 @@ private struct _XMLRPCSingleValueDecoder: SingleValueDecodingContainer {
     let codingPath: [CodingKey]
     let node: XMLNode
     
-    private func assertNodeName(_ names: String...) throws {
+    private func stringContents(_ names: String...) throws -> String {
         let name = try node.name ?! DecodingError.wrongNodeName(node, expected: names[0], codingPath)
         if names.contains(name) == false {
             throw DecodingError.wrongNodeName(node, expected: names[0], codingPath)
         }
-    }
-    
-    private func stringContents() throws -> String {
-        guard let string = node.stringValue else { throw DecodingError.missingContents(node, codingPath) }
-        return string
+        return try node.stringValue ?! DecodingError.missingContents(node, codingPath)
     }
     
     func decodeNil() -> Bool { return false }
     
     func decode(_ type: Bool.Type) throws -> Bool {
-        try assertNodeName("boolean")
-        let contents = try stringContents()
+        let contents = try stringContents("boolean")
         if contents == "1" { return true }
         if contents == "0" { return false }
         throw DecodingError.invalidContents(node, codingPath)
     }
     
     func decode(_ type: String.Type) throws -> String {
-        try assertNodeName("string")
-        return try stringContents()
+        return try stringContents("string")
     }
     
     func decode(_ type: Double.Type) throws -> Double {
-        try assertNodeName("double")
-        let contents = try stringContents()
+        let contents = try stringContents("double")
         return try Double(contents) ?! DecodingError.invalidContents(node, codingPath)
     }
     
     func decode(_ type: Float.Type) throws -> Float {
-        try assertNodeName("double")
-        let contents = try stringContents()
+        let contents = try stringContents("double")
         return try Float(contents) ?! DecodingError.invalidContents(node, codingPath)
     }
     
     func decode(_ type: Date.Type) throws -> Date {
-        try assertNodeName("dateTime.iso8601")
-        let contents = try stringContents()
+        let contents = try stringContents("dateTime.iso8601")
         return try iso8601Formatter.date(from: contents) ?! DecodingError.invalidContents(node, codingPath)
     }
     
     func decode(_ type: Data.Type) throws -> Data {
-        try assertNodeName("base64")
-        let contents = try stringContents()
+        let contents = try stringContents("base64")
         return try Data(base64Encoded: contents) ?! DecodingError.invalidContents(node, codingPath)
     }
     
     private func decodeInt<I: FixedWidthInteger>() throws -> I {
-        try assertNodeName("int", "i4")
-        let contents = try stringContents()
+        let contents = try stringContents("int", "i4")
         return try I(contents) ?! DecodingError.invalidContents(node, codingPath)
     }
     
