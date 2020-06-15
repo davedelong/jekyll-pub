@@ -9,18 +9,13 @@ import Foundation
 
 class XMLRPCDecoder {
     init() { }
-    func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> XMLRPCMethodCall<T> {
+    func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         let doc = try XMLDocument(data: data, options: [])
-        guard let name = (try doc.nodes(forXPath: "//methodCall/methodName")).first?.stringValue else {
-            throw DecodingError.missingChildNode(doc.rootElement()!, "methodName", [])
-        }
-        
         let parameterNodes = try doc.nodes(forXPath: "//methodCall/params/param/value")
         parameterNodes.forEach { $0.detach() }
         let array = XMLElement(name: "array", child: XMLElement(name: "data", children: parameterNodes))
         let decoder = _XMLRPCDecoder(node: array, path: [])
-        let parameters = try T.init(from: decoder)
-        return XMLRPCMethodCall(methodName: name, parameters: parameters)
+        return try T.init(from: decoder)
     }
 }
 
@@ -131,8 +126,8 @@ private struct _XMLRPCKeyedDecoder<Key: CodingKey>: KeyedDecodingContainerProtoc
     }
     
     func decodeNil(forKey key: Key) throws -> Bool {
-        let context = DecodingError.Context(codingPath: codingPath + [key], debugDescription: "XMLRPC does not support NULL values")
-        throw DecodingError.typeMismatch(NSNull.self, context)
+        if contains(key) { return false }
+        return true
     }
     
     private func getSingleChild(_ key: Key) throws -> XMLNode {
@@ -231,8 +226,8 @@ private struct _XMLRPCKeyedDecoder<Key: CodingKey>: KeyedDecodingContainerProtoc
     }
     
     func decode<T>(_ type: T.Type, forKey key: Key) throws -> T where T : Decodable {
-        let structNode = try getSingleChild(of: key, name: "struct")
-        let nested = _XMLRPCDecoder(node: structNode, path: codingPath + [key])
+        let whatever = try getSingleChild(key)
+        let nested = _XMLRPCDecoder(node: whatever, path: codingPath + [key])
         return try T.init(from: nested)
     }
     
@@ -270,6 +265,15 @@ private struct _XMLRPCUnkeyedDecoder: UnkeyedDecodingContainer {
     private var currentKey: CodingKey { AnyCodingKey(intValue: currentIndex)! }
     private var currentPath: [CodingKey] { codingPath + [currentKey] }
     
+    init(node: XMLNode, path: [CodingKey]) throws {
+        guard node.name == "array" else { throw DecodingError.wrongNodeName(node, expected: "array", path) }
+        let data = try node.child(at: 0) ?! DecodingError.missingChildNode(node, 0, path)
+        guard data.name == "data" else { throw DecodingError.wrongNodeName(data, expected: "data", path) }
+        root = node
+        values = data.children ?? []
+        codingPath = path
+    }
+    
     private mutating func nextValue() throws -> (XMLNode, [CodingKey]) {
         let path = currentPath
         guard currentIndex >= 0 && currentIndex < values.count else {
@@ -278,15 +282,6 @@ private struct _XMLRPCUnkeyedDecoder: UnkeyedDecodingContainer {
         let v = values[currentIndex]
         currentIndex += 1
         return (v, path)
-    }
-    
-    init(node: XMLNode, path: [CodingKey]) throws {
-        guard node.name == "array" else { throw DecodingError.wrongNodeName(node, expected: "array", path) }
-        let data = try node.child(at: 0) ?! DecodingError.missingChildNode(node, 0, path)
-        guard data.name == "data" else { throw DecodingError.wrongNodeName(data, expected: "data", path) }
-        root = node
-        values = data.children ?? []
-        codingPath = path
     }
     
     mutating func decodeNil() throws -> Bool {
@@ -375,18 +370,24 @@ private struct _XMLRPCUnkeyedDecoder: UnkeyedDecodingContainer {
     
     mutating func decode<T>(_ type: T.Type) throws -> T where T : Decodable {
         let (v, path) = try nextValue()
-        let decoder = _XMLRPCDecoder(node: v, path: path)
+        guard v.name == "value" else { throw DecodingError.missingChildNode(v, "value", path) }
+        let child = try v.child(at: 0) ?! DecodingError.missingChildNode(v, 0, path)
+        let decoder = _XMLRPCDecoder(node: child, path: path)
         return try T.init(from: decoder)
     }
     
     mutating func nestedContainer<NestedKey>(keyedBy type: NestedKey.Type) throws -> KeyedDecodingContainer<NestedKey> where NestedKey : CodingKey {
         let (v, path) = try nextValue()
-        return try KeyedDecodingContainer(_XMLRPCKeyedDecoder<NestedKey>(node: v, path: path))
+        guard v.name == "value" else { throw DecodingError.missingChildNode(v, "value", path) }
+        let child = try v.child(at: 0) ?! DecodingError.missingChildNode(v, 0, path)
+        return try KeyedDecodingContainer(_XMLRPCKeyedDecoder<NestedKey>(node: child, path: path))
     }
     
     mutating func nestedUnkeyedContainer() throws -> UnkeyedDecodingContainer {
         let (v, path) = try nextValue()
-        return try _XMLRPCUnkeyedDecoder(node: v, path: path)
+        guard v.name == "value" else { throw DecodingError.missingChildNode(v, "value", path) }
+        let child = try v.child(at: 0) ?! DecodingError.missingChildNode(v, 0, path)
+        return try _XMLRPCUnkeyedDecoder(node: child, path: path)
     }
     
     mutating func superDecoder() throws -> Decoder {

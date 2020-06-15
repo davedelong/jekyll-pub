@@ -17,18 +17,16 @@ struct XMLRPCRoute : CustomStringConvertible {
     
     let decode: (Data) throws -> Executor
     let description: String
+    let supportedMethods: Set<String>
     
     init<T: XMLRPCMethod>(type: T.Type) {
         self.description = "\(T.self) -> \(T.XMLRPCMethodResult.self)"
+        self.supportedMethods = T.methodCalls
         self.decode = {
             let decoder = XMLRPCDecoder()
-            let method = try decoder.decode(T.self, from: $0)
-            guard T.methodCalls.contains(method.methodName) else {
-                throw DecodingError.typeMismatch(T.self, DecodingError.Context(codingPath: [], debugDescription: "Expect one of \(T.methodCalls), but got \(method.methodName)"))
-            }
-            
+            let parameters = try decoder.decode(T.self, from: $0)
             return { site in
-                let result = try method.parameters.execute(with: site)
+                let result = try parameters.execute(with: site)
                 return try XMLRPCEncoder().encode(result)
             }
         }

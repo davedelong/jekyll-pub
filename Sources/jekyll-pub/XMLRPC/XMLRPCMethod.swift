@@ -20,8 +20,3 @@ extension XMLRPCMethod {
     }
 }
 
-struct XMLRPCMethodCall<T: XMLRPCMethod> {
-    let methodName: String
-    let parameters: T
-}
-

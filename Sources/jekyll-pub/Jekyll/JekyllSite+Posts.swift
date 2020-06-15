@@ -119,6 +119,11 @@ extension JekyllSite {
         
         return filledOut
     }
+    
+    func editPost(_ post: JekyllPost, postID: String, publish: Bool) throws -> Bool {
+        // todo: this
+        return false
+    }
 }
 
 let slugDateFormatter: DateFormatter = {

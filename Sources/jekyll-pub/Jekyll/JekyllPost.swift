@@ -21,12 +21,10 @@ let publishDateFormatter: DateFormatter = {
 
 struct JekyllPost {
     
-    struct Status: Equatable, Codable {
-        static let published = Status(rawValue: "publish")
-        static let draft = Status(rawValue: "draft")
-        let rawValue: String
-        
-        init(rawValue: String) { self.rawValue = rawValue }
+    enum Status: String, Codable {
+        static var published: Status { .publish }
+        case publish
+        case draft
     }
     
     enum Kind: String, Codable {
@@ -110,6 +108,12 @@ struct JekyllPost {
         self.status = isDraftsFolder ? .draft : .published
         self.fileURL = url
         self.kind = isPost ? .post : .page
+        if isPost == false {
+            self.id = url.absoluteString
+        }
+        if self.id == NoID && isPost == true {
+            self.id = title.slugified()
+        }
     }
     
     func content() throws -> String {

@@ -9,6 +9,21 @@ import Foundation
 
 extension JekyllSite {
     
+    func allMedia() -> [JekyllMediaResult] {
+        let enumerator = FileManager.default.enumerator(at: filesFolder, includingPropertiesForKeys: [.isDirectoryKey])
+        var mediaItems = Array<JekyllMediaResult>()
+        
+        if let iterator = enumerator {
+            for anyURL in iterator {
+                guard let url = anyURL as? URL else { continue }
+                guard (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
+                let media = JekyllMediaResult(url: url)
+                mediaItems.append(media)
+            }
+        }
+        return mediaItems
+    }
+    
     func saveMedia(_ media: JekyllMedia) throws -> JekyllMediaResult {
         let baseName = (media.name as NSString).deletingPathExtension.slugified()
         let pathExtension = (media.name as NSString).pathExtension
@@ -28,7 +43,7 @@ extension JekyllSite {
         }
         
         try media.bits.write(to: url)
-        return JekyllMediaResult(name: name, type: media.type, siteURL: "/files/\(name)")
+        return JekyllMediaResult(url: url)
     }
     
 }

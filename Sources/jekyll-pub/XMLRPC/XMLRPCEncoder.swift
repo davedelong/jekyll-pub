@@ -210,7 +210,7 @@ private struct _XMLRPCKeyedValueEncoder<Key: CodingKey>: KeyedEncodingContainerP
         keys.insert(key.stringValue)
     }
     
-    mutating func encodeNil(forKey key: Key) throws { throw EncodingError.cannotEncode(NSNull(), parent: container, codingPath + [key]) }
+    mutating func encodeNil(forKey key: Key) throws { }
     
     mutating func encode<T>(_ value: T, forKey key: Key) throws where T : Encodable {
         try claimKey(key, for: value)

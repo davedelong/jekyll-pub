@@ -9,14 +9,14 @@ import Foundation
 
 enum Wordpress {
     // ~get categories
-    // new category
+    // ~new category
     // ~get tags
-    // new post
-    // edit post
-    // delete post
-    // get post
+    // ~new post
+    // ~edit post
+    // ~delete post
+    // ~get post
     // ~get posts
-    // get post formats
+    // ~get post formats
     // ~get users
     // ~get authors
     // get media library
@@ -63,7 +63,7 @@ enum Wordpress {
         }
         
         func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
-            return [User(user_id: "0", username: "", first_name: "", last_name: "", bio: "", email: "", nickname: "", nicename: "", url: "", display_name: "", registered: Date(), roles: [])]
+            return [User(user_id: "0", username: "dave", first_name: "Dave", last_name: "", bio: "", email: "", nickname: "", nicename: "", url: "", display_name: "Dave", registered: Date(), roles: [])]
         }
     }
     struct GetAuthors: XMLRPCMethod {
@@ -85,8 +85,92 @@ enum Wordpress {
             return [Author(user_id: "0", user_login: "", display_name: "")]
         }
     }
+    struct NewPost: XMLRPCMethod {
+        typealias XMLRPCMethodResult = String
+        static let methodCalls: Set<String> = ["wp.newPost"]
+        
+        let blogID: String
+        let userName: String
+        let password: String
+        let post: JekyllPost
+        
+        init(from decoder: Decoder) throws {
+            var c = try decoder.unkeyedContainer()
+            blogID = try c.decode(String.self)
+            userName = try c.decode(String.self)
+            password = try c.decode(String.self)
+            post = try c.decode(JekyllPost.self)
+        }
+        
+        func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
+            return try site.newPost(post, publish: true).id
+        }
+    }
+    struct EditPost: XMLRPCMethod {
+        typealias XMLRPCMethodResult = Bool
+        static let methodCalls: Set<String> = ["wp.editPost"]
+        
+        let blogID: String
+        let userName: String
+        let password: String
+        let postID: String
+        let post: JekyllPost
+        
+        init(from decoder: Decoder) throws {
+            var c = try decoder.unkeyedContainer()
+            blogID = try c.decode(String.self)
+            userName = try c.decode(String.self)
+            password = try c.decode(String.self)
+            postID = try c.decode(String.self)
+            post = try c.decode(JekyllPost.self)
+        }
+        
+        func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
+            return try site.editPost(post, postID: postID, publish: true)
+        }
+    }
+    struct GetPost: XMLRPCMethod {
+        typealias XMLRPCMethodResult = Post
+        static let methodCalls: Set<String> = ["wp.getPost"]
+        
+        let userName: String
+        let password: String
+        let postID: String
+        
+        init(from decoder: Decoder) throws {
+            var c = try decoder.unkeyedContainer()
+            userName = try c.decode(String.self)
+            password = try c.decode(String.self)
+            postID = try c.decode(String.self)
+        }
+        
+        func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
+            return Post(try site.getPost(postID))
+        }
+    }
+    struct DeletePost: XMLRPCMethod {
+        typealias XMLRPCMethodResult = Bool
+        static let methodCalls: Set<String> = ["wp.deletePost"]
+        
+        let blogID: String
+        let userName: String
+        let password: String
+        let postID: String
+        
+        init(from decoder: Decoder) throws {
+            var c = try decoder.unkeyedContainer()
+            blogID = try c.decode(String.self)
+            userName = try c.decode(String.self)
+            password = try c.decode(String.self)
+            postID = try c.decode(String.self)
+        }
+        
+        func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
+            return site.deletePost(postID)
+        }
+    }
     struct GetPosts: XMLRPCMethod {
-        typealias XMLRPCMethodResult = Array<JekyllPost>
+        typealias XMLRPCMethodResult = Array<Post>
         static let methodCalls: Set<String> = ["wp.getPosts"]
         
         let blogID: String
@@ -114,7 +198,26 @@ enum Wordpress {
             if let number = filter.number {
                 slice = slice.prefix(number)
             }
-            return Array(slice)
+            return slice.map { Post($0) }
+        }
+    }
+    struct GetPostFormats: XMLRPCMethod {
+        typealias XMLRPCMethodResult = Dictionary<String, String>
+        static let methodCalls: Set<String> = ["wp.getPostFormats"]
+        
+        let blogID: String
+        let userName: String
+        let password: String
+        
+        init(from decoder: Decoder) throws {
+            var c = try decoder.unkeyedContainer()
+            blogID = try c.decode(String.self)
+            userName = try c.decode(String.self)
+            password = try c.decode(String.self)
+        }
+        
+        func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
+            return ["post": "Post", "page": "Page"]
         }
     }
     struct GetTags: XMLRPCMethod {
@@ -144,6 +247,37 @@ enum Wordpress {
                 return Tag(tag_id: tag, name: tag, slug: tag.slugified(), count: count)
             }
             return wpTags
+        }
+    }
+    struct GetMediaLibrary: XMLRPCMethod {
+        typealias XMLRPCMethodResult = Array<MediaItem>
+        static let methodCalls: Set<String> = ["wp.getMediaLibrary"]
+        
+        let blogID: String
+        let userName: String
+        let password: String
+        let filter: MediaFilter?
+        
+        init(from decoder: Decoder) throws {
+            var c = try decoder.unkeyedContainer()
+            blogID = try c.decode(String.self)
+            userName = try c.decode(String.self)
+            password = try c.decode(String.self)
+            if c.isAtEnd == false {
+                filter = try c.decode(MediaFilter.self)
+            } else {
+                filter = nil
+            }
+        }
+        
+        func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
+            let media = site.allMedia()
+            var slice = media[...]
+            if let offset = filter?.offset { slice = slice.dropFirst(offset) }
+            if let number = filter?.number { slice = slice.prefix(number) }
+            return slice.map {
+                MediaItem(attachment_id: $0.name, link: $0.siteURL, title: $0.name, caption: $0.name, description: $0.name)
+            }
         }
     }
 }
@@ -189,5 +323,47 @@ extension Wordpress {
         let offset: Int?
         let orderby: String?
         let order: String?
+    }
+    struct MediaFilter: Decodable {
+        let number: Int?
+        let offset: Int?
+        let parent_id: String?
+        let mime_type: String?
+    }
+    struct Post: Codable {
+        let post_id: String?
+        let post_title: String
+        let post_date_gmt: Date?
+        let post_type: String
+        let post_status: String
+        let post_author: String
+        let post_content: String
+        let terms: Array<Term>
+    }
+    struct Term: Codable {
+        let term_id: String
+        let name: String
+        let slug: String
+        let taxonomy = "post_tag"
+    }
+    struct MediaItem: Encodable {
+        let attachment_id: String
+        let link: String
+        let title: String
+        let caption: String
+        let description: String
+    }
+}
+
+extension Wordpress.Post {
+    init(_ p: JekyllPost) {
+        post_id = p.id
+        post_title = p.title
+        post_date_gmt = p.publishedDate
+        post_type = p.kind.rawValue
+        post_status = p.status.rawValue
+        post_author = "0"
+        post_content = p.body
+        terms = p.tags.map { Wordpress.Term(term_id: $0, name: $0, slug: $0.slugified()) }
     }
 }
