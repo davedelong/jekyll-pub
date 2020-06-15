@@ -103,6 +103,7 @@ private struct _XMLRPCKeyedDecoder<Key: CodingKey>: KeyedDecodingContainerProtoc
     private let valueNodes: Dictionary<String, XMLNode>
     
     init(node: XMLNode, path: [CodingKey]) throws {
+        guard node.name == "struct" else { throw DecodingError.wrongNodeName(node, expected: "struct", path) }
         let children = node.children ?? []
         let members = children.filter { $0.name == "member" }
         
@@ -135,100 +136,14 @@ private struct _XMLRPCKeyedDecoder<Key: CodingKey>: KeyedDecodingContainerProtoc
             throw DecodingError.keyNotFound(key, DecodingError.Context(codingPath: codingPath, debugDescription: "No member with name '\(key.stringValue)'"))
         }
         guard let child = valueNode.child(at: 0) else { throw DecodingError.missingChildNode(valueNode, 0, codingPath + [key]) }
+        guard child.name == "value" else { throw DecodingError.wrongNodeName(child, expected: "value", codingPath + [key]) }
         return child
-    }
-    private func getSingleChild(of key: Key, name: String) throws -> XMLNode {
-        let child = try getSingleChild(key)
-        guard name == child.name else { throw DecodingError.wrongNodeName(child, expected: name, codingPath + [key]) }
-        return child
-    }
-    
-    func decode(_ type: Bool.Type, forKey key: Key) throws -> Bool {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: String.Type, forKey key: Key) throws -> String {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: Double.Type, forKey key: Key) throws -> Double {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    func decode(_ type: Float.Type, forKey key: Key) throws -> Float {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    func decode(_ type: Date.Type, forKey key: Key) throws -> Date {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    func decode(_ type: Data.Type, forKey key: Key) throws -> Data {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    func decode(_ type: Int.Type, forKey key: Key) throws -> Int {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: Int8.Type, forKey key: Key) throws -> Int8 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: Int16.Type, forKey key: Key) throws -> Int16 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: Int32.Type, forKey key: Key) throws -> Int32 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: Int64.Type, forKey key: Key) throws -> Int64 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: UInt.Type, forKey key: Key) throws -> UInt {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: UInt8.Type, forKey key: Key) throws -> UInt8 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: UInt16.Type, forKey key: Key) throws -> UInt16 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: UInt32.Type, forKey key: Key) throws -> UInt32 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode(_ type: UInt64.Type, forKey key: Key) throws -> UInt64 {
-        let child = try getSingleChild(key)
-        return try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child).decode(type)
-    }
-    
-    func decode<D: Decodable>(_ type: Array<D>.Type, forKey key: Key) throws -> Array<D> {
-        let arrayNode = try getSingleChild(of: key, name: "array")
-        let nested = _XMLRPCDecoder(node: arrayNode, path: codingPath + [key])
-        return try Array<D>.init(from: nested)
     }
     
     func decode<T>(_ type: T.Type, forKey key: Key) throws -> T where T : Decodable {
-        let whatever = try getSingleChild(key)
-        let nested = _XMLRPCDecoder(node: whatever, path: codingPath + [key])
-        return try T.init(from: nested)
+        let child = try getSingleChild(key)
+        let decoder = try _XMLRPCSingleValueDecoder(codingPath: codingPath + [key], node: child)
+        return try decoder.decode(type)
     }
     
     func nestedContainer<NestedKey>(keyedBy type: NestedKey.Type, forKey key: Key) throws -> KeyedDecodingContainer<NestedKey> where NestedKey : CodingKey {
@@ -281,113 +196,29 @@ private struct _XMLRPCUnkeyedDecoder: UnkeyedDecodingContainer {
         }
         let v = values[currentIndex]
         currentIndex += 1
-        return (v, path)
+        guard v.name == "value" else { throw DecodingError.missingChildNode(v, "value", path) }
+        let child = try v.child(at: 0) ?! DecodingError.missingChildNode(v, 0, path)
+        return (child, path)
     }
     
     mutating func decodeNil() throws -> Bool {
         return false
     }
     
-    mutating func decode(_ type: Bool.Type) throws -> Bool {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: String.Type) throws -> String {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Double.Type) throws -> Double {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Float.Type) throws -> Float {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Int.Type) throws -> Int {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Int8.Type) throws -> Int8 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Int16.Type) throws -> Int16 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Int32.Type) throws -> Int32 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Int64.Type) throws -> Int64 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: UInt.Type) throws -> UInt {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: UInt8.Type) throws -> UInt8 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: UInt16.Type) throws -> UInt16 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: UInt32.Type) throws -> UInt32 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: UInt64.Type) throws -> UInt64 {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Date.Type) throws -> Date {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
-    mutating func decode(_ type: Data.Type) throws -> Data {
-        let (v, path) = try nextValue()
-        return try _XMLRPCSingleValueDecoder(codingPath: path, node: v).decode(type)
-    }
-    
     mutating func decode<T>(_ type: T.Type) throws -> T where T : Decodable {
         let (v, path) = try nextValue()
-        guard v.name == "value" else { throw DecodingError.missingChildNode(v, "value", path) }
-        let child = try v.child(at: 0) ?! DecodingError.missingChildNode(v, 0, path)
-        let decoder = _XMLRPCDecoder(node: child, path: path)
-        return try T.init(from: decoder)
+        let decoder = try _XMLRPCSingleValueDecoder(codingPath: path, node: v)
+        return try decoder.decode(type)
     }
     
     mutating func nestedContainer<NestedKey>(keyedBy type: NestedKey.Type) throws -> KeyedDecodingContainer<NestedKey> where NestedKey : CodingKey {
         let (v, path) = try nextValue()
-        guard v.name == "value" else { throw DecodingError.missingChildNode(v, "value", path) }
-        let child = try v.child(at: 0) ?! DecodingError.missingChildNode(v, 0, path)
-        return try KeyedDecodingContainer(_XMLRPCKeyedDecoder<NestedKey>(node: child, path: path))
+        return try KeyedDecodingContainer(_XMLRPCKeyedDecoder<NestedKey>(node: v, path: path))
     }
     
     mutating func nestedUnkeyedContainer() throws -> UnkeyedDecodingContainer {
         let (v, path) = try nextValue()
-        guard v.name == "value" else { throw DecodingError.missingChildNode(v, "value", path) }
-        let child = try v.child(at: 0) ?! DecodingError.missingChildNode(v, 0, path)
-        return try _XMLRPCUnkeyedDecoder(node: child, path: path)
+        return try _XMLRPCUnkeyedDecoder(node: v, path: path)
     }
     
     mutating func superDecoder() throws -> Decoder {

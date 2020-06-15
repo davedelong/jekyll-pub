@@ -115,7 +115,7 @@ enum Wordpress {
         let userName: String
         let password: String
         let postID: String
-        let post: JekyllPost
+        let post: SavePost
         
         init(from decoder: Decoder) throws {
             var c = try decoder.unkeyedContainer()
@@ -123,11 +123,13 @@ enum Wordpress {
             userName = try c.decode(String.self)
             password = try c.decode(String.self)
             postID = try c.decode(String.self)
-            post = try c.decode(JekyllPost.self)
+            post = try c.decode(SavePost.self)
         }
         
         func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
-            return try site.editPost(post, postID: postID, publish: true)
+            var p = JekyllPost(post)
+            p.id = postID
+            return try site.editPost(p, publish: true)
         }
     }
     struct GetPost: XMLRPCMethod {
@@ -348,7 +350,7 @@ extension Wordpress {
         let post_type: String?
         let post_status: String
         let post_content: String
-        let terms_names: Dictionary<String, Array<String>>
+        let terms_names: Dictionary<String, Array<String>>?
     }
     struct Term: Codable {
         let term_id: String
@@ -386,6 +388,6 @@ extension JekyllPost {
         kind = p.post_type.flatMap { Kind(rawValue: $0) } ?? .post
         status = Status(rawValue: p.post_status) ?? .publish
         body = p.post_content
-        tags = p.terms_names["post_tag"] ?? []
+        tags = p.terms_names?["post_tag"] ?? []
     }
 }

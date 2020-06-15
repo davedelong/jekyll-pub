@@ -96,33 +96,53 @@ extension JekyllSite {
     func newPost(_ post: JekyllPost, publish: Bool) throws -> JekyllPost {
         var filledOut = post
         
-        filledOut["layout"] = .init("post")
+        filledOut["layout"] = .init(post.kind.rawValue)
         filledOut.status = publish ? .published : .draft
         
         if publish == true && filledOut.publishedDate == nil {
             filledOut.publishedDate = Date()
         }
         
-        let title = filledOut.title
-        let slug = title.slugified()
-        
-        var baseName = slug
-        if let pubDate = filledOut.publishedDate {
-            filledOut.id = slug
-            baseName = slugDateFormatter.string(from: pubDate) + "-" + slug
-        }
-        
-        let url = (publish ? postsFolder : draftsFolder).appendingPathComponent("\(baseName).md")
+        let url = self.url(for: &filledOut, publish: publish)
         let content = try filledOut.content()
-        
         try content.write(to: url, atomically: true, encoding: .utf8)
         
         return filledOut
     }
     
-    func editPost(_ post: JekyllPost, postID: String, publish: Bool) throws -> Bool {
-        // todo: this
-        return false
+    func editPost(_ post: JekyllPost, publish: Bool) throws -> Bool {
+        let currentPost = try getPost(post.id)
+        
+        if currentPost.status != post.status {
+            _ = deletePost(post.id)
+        }
+        _ = try newPost(post, publish: publish)
+        
+        return true
+    }
+    
+    private func url(for post: inout JekyllPost, publish: Bool) -> URL {
+        if let u = post.fileURL { return u }
+        
+        if post.kind == .page {
+            if let u = URL(string: post.id) {
+                post.fileURL = u
+                return u
+            }
+        }
+        
+        let title = post.title
+        let slug = title.slugified()
+        
+        var baseName = slug
+        if let pubDate = post.publishedDate {
+            post.id = slug
+            baseName = slugDateFormatter.string(from: pubDate) + "-" + slug
+        }
+        
+        let url = (publish ? postsFolder : draftsFolder).appendingPathComponent("\(baseName).md")
+        post.fileURL = url
+        return url
     }
 }
 
