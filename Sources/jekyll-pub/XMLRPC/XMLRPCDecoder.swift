@@ -250,54 +250,48 @@ private struct _XMLRPCSingleValueDecoder: SingleValueDecodingContainer {
     
     func decodeNil() -> Bool { return false }
     
-    func decode(_ type: Bool.Type) throws -> Bool {
-        let contents = try stringContents("boolean")
-        if contents == "1" { return true }
-        if contents == "0" { return false }
-        throw DecodingError.invalidContents(node, codingPath)
-    }
-    
-    func decode(_ type: String.Type) throws -> String {
-        return try stringContents("string")
-    }
-    
-    func decode(_ type: Double.Type) throws -> Double {
-        let contents = try stringContents("double")
-        return try Double(contents) ?! DecodingError.invalidContents(node, codingPath)
-    }
-    
-    func decode(_ type: Float.Type) throws -> Float {
-        let contents = try stringContents("double")
-        return try Float(contents) ?! DecodingError.invalidContents(node, codingPath)
-    }
-    
-    func decode(_ type: Date.Type) throws -> Date {
-        let contents = try stringContents("dateTime.iso8601")
-        return try iso8601Formatter.date(from: contents) ?! DecodingError.invalidContents(node, codingPath)
-    }
-    
-    func decode(_ type: Data.Type) throws -> Data {
-        let contents = try stringContents("base64")
-        return try Data(base64Encoded: contents) ?! DecodingError.invalidContents(node, codingPath)
-    }
-    
-    private func decodeInt<I: FixedWidthInteger>() throws -> I {
+    private func decodeInt<I: FixedWidthInteger>(_ type: I.Type) throws -> I {
         let contents = try stringContents("int", "i4")
         return try I(contents) ?! DecodingError.invalidContents(node, codingPath)
     }
     
-    func decode(_ type: Int.Type) throws -> Int { try decodeInt() }
-    func decode(_ type: Int8.Type) throws -> Int8 { try decodeInt() }
-    func decode(_ type: Int16.Type) throws -> Int16 { try decodeInt() }
-    func decode(_ type: Int32.Type) throws -> Int32 { try decodeInt() }
-    func decode(_ type: Int64.Type) throws -> Int64 { try decodeInt() }
-    func decode(_ type: UInt.Type) throws -> UInt { try decodeInt() }
-    func decode(_ type: UInt8.Type) throws -> UInt8 { try decodeInt() }
-    func decode(_ type: UInt16.Type) throws -> UInt16 { try decodeInt() }
-    func decode(_ type: UInt32.Type) throws -> UInt32 { try decodeInt() }
-    func decode(_ type: UInt64.Type) throws -> UInt64 { try decodeInt() }
-    
     func decode<T>(_ type: T.Type) throws -> T where T : Decodable {
+        if type == Bool.self {
+            let contents = try stringContents("boolean")
+            if contents == "1" { return true as! T }
+            if contents == "0" { return false as! T }
+            throw DecodingError.invalidContents(node, codingPath)
+        }
+        if type == String.self {
+            return try stringContents("string") as! T
+        }
+        if type == Double.self {
+            let contents = try stringContents("double")
+            return try Double(contents) as? T ?! DecodingError.invalidContents(node, codingPath)
+        }
+        if type == Float.self {
+            let contents = try stringContents("double")
+            return try Float(contents) as? T ?! DecodingError.invalidContents(node, codingPath)
+        }
+        if type == Date.self {
+            let contents = try stringContents("dateTime.iso8601")
+            return try iso8601Formatter.date(from: contents) as? T ?! DecodingError.invalidContents(node, codingPath)
+        }
+        if type == Data.self {
+            let contents = try stringContents("base64")
+            return try Data(base64Encoded: contents) as? T ?! DecodingError.invalidContents(node, codingPath)
+        }
+        if type == Int.self { return try decodeInt(Int.self) as! T }
+        if type == Int8.self { return try decodeInt(Int8.self) as! T }
+        if type == Int16.self { return try decodeInt(Int16.self) as! T }
+        if type == Int32.self { return try decodeInt(Int32.self) as! T }
+        if type == Int64.self { return try decodeInt(Int64.self) as! T }
+        if type == UInt.self { return try decodeInt(UInt.self) as! T }
+        if type == UInt8.self { return try decodeInt(UInt8.self) as! T }
+        if type == UInt16.self { return try decodeInt(UInt16.self) as! T }
+        if type == UInt32.self { return try decodeInt(UInt32.self) as! T }
+        if type == UInt64.self { return try decodeInt(UInt64.self) as! T }
+        
         let decoder = _XMLRPCDecoder(node: node, path: codingPath)
         return try T.init(from: decoder)
     }

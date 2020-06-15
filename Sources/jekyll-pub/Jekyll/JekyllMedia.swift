@@ -11,7 +11,7 @@ struct JekyllMedia: Decodable {
     let name: String
     let type: String
     let bits: Data
-    var overwrite: Bool = true
+    var overwrite: Bool?
 }
 
 struct JekyllMediaResult: Encodable {

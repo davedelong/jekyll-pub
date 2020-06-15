@@ -32,7 +32,7 @@ extension JekyllSite {
         var name = "\(baseName).\(pathExtension)"
         var url = filesFolder.appendingPathComponent(name)
         
-        while FileManager.default.fileExists(atPath: url.path) && media.overwrite == false {
+        while FileManager.default.fileExists(atPath: url.path) && media.overwrite != true {
             name = "\(baseName)-\(nextSuffix).\(pathExtension)"
             url = filesFolder.appendingPathComponent(name)
             nextSuffix += 1
