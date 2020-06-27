@@ -10,9 +10,12 @@ import Swifter
 
 class XMLRPCServer {
     let server = HttpServer()
+    
+    private let site: JekyllSite
     private var xmlrpcRoutes = Array<XMLRPCRoute>()
     
     init(site: JekyllSite) {
+        self.site = site
         server.post["/"] = self.handleXMLRPC
         
         addRouteHandler(MetaWeblog.GetCategories.self)
@@ -38,6 +41,7 @@ class XMLRPCServer {
     }
     
     func run() throws {
+        print("Serving files from \(site.rootFolder.path)")
         try server.start(9080, forceIPv4: false, priority: .userInteractive)
         dispatchMain()
     }
