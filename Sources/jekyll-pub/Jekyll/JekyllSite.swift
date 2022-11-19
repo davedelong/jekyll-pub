@@ -8,16 +8,25 @@
 import Foundation
 
 struct JekyllSite {
+    // Serve XMLRPC on this port
+    let port: UInt16 = 9080
+
+    // Root of the Jekyll site on disk
     let rootFolder: URL
-    let postsFolder: URL
+
+    // Not the only place files can be, but the contents of this folder will be exposed
+    // from the getMediaLibrary endpoint, and binary uploads will go here.
     let filesFolder: URL
-    let draftsFolder: URL
-    
+
     init(siteFolder: Path) {
         rootFolder = siteFolder.fileURL
-        postsFolder = siteFolder.fileURL.appendingPathComponent("_posts")
-        filesFolder = siteFolder.fileURL.appendingPathComponent("_files")
-        draftsFolder = siteFolder.fileURL.appendingPathComponent("_drafts")
+        filesFolder = siteFolder.fileURL.appendingPathComponent("assets")
+    }
+
+    var webBase: URL {
+        // Assuming that you're also running jekyll in dev mode nearby. MarsEdit
+        // will need this running to fetch assets for preview.
+        URL(string: "http://localhost:4000/")!
     }
     
 }

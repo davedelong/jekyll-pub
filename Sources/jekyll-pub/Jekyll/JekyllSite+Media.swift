@@ -16,8 +16,8 @@ extension JekyllSite {
         if let iterator = enumerator {
             for anyURL in iterator {
                 guard let url = anyURL as? URL else { continue }
-                guard (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true else { continue }
-                let media = JekyllMediaResult(url: url)
+                guard (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == false else { continue }
+                let media = JekyllMediaResult(url: url, root: rootFolder)
                 mediaItems.append(media)
             }
         }
@@ -43,7 +43,7 @@ extension JekyllSite {
         }
         
         try media.bits.write(to: url)
-        return JekyllMediaResult(url: url)
+        return JekyllMediaResult(url: url, root: rootFolder)
     }
     
 }

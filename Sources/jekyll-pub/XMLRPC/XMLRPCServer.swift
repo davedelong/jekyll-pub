@@ -17,7 +17,7 @@ class XMLRPCServer {
     init(site: JekyllSite) {
         self.site = site
         server.post["/"] = self.handleXMLRPC
-        
+
         addRouteHandler(MetaWeblog.GetCategories.self)
         addRouteHandler(MetaWeblog.GetRecentPosts.self)
         addRouteHandler(MetaWeblog.NewPost.self)
@@ -38,11 +38,15 @@ class XMLRPCServer {
         addRouteHandler(Wordpress.GetUsers.self)
         addRouteHandler(Wordpress.GetAuthors.self)
         addRouteHandler(Wordpress.GetMediaLibrary.self)
+
+        addRouteHandler(MovableType.GetCategories.self)
     }
     
     func run() throws {
         print("Serving files from \(site.rootFolder.path)")
-        try server.start(9080, forceIPv4: false, priority: .userInteractive)
+        // Explicitly bind to localhost only
+        server.listenAddressIPv4 = "127.0.0.1"
+        try server.start(site.port, forceIPv4: true, priority: .userInteractive)
         dispatchMain()
     }
     
@@ -66,12 +70,17 @@ class XMLRPCServer {
                 print("\(possibleRoute) failed to accept because: \(error)")
             }
             if handler != nil {
-                print("Chose route: \(possibleRoute)")
+                print("  ..chose route: \(possibleRoute)")
                 break
             }
         }
         
         if let h = handler {
+            let startTime = CFAbsoluteTimeGetCurrent()
+            defer {
+                let elapsed = CFAbsoluteTimeGetCurrent() - startTime
+                print(String(format: "  ..took %.3f seconds", elapsed))
+            }
             do {
                 let responseBody = try h(site)
                 return .ok(.data(responseBody))
@@ -87,7 +96,7 @@ class XMLRPCServer {
                 return .internalServerError
             }
         } else {
-            return .unauthorized
+            return .notFound
         }
     }
     

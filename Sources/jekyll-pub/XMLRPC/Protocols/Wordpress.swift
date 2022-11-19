@@ -7,7 +7,9 @@
 
 import Foundation
 
+// https://codex.wordpress.org/XML-RPC_WordPress_API
 enum Wordpress {
+
     // ~get categories
     // ~new category
     // ~get tags
@@ -103,8 +105,9 @@ enum Wordpress {
         }
         
         func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
-            let post = JekyllPost(self.post)
-            return try site.newPost(post, publish: true).id
+            var post = JekyllPost(root: site.rootFolder)
+            post.update(from: self.post)
+            return try site.newPost(post, publish: post.status == .publish).id ?! CocoaError(CocoaError.fileNoSuchFile)
         }
     }
     struct EditPost: XMLRPCMethod {
@@ -127,11 +130,13 @@ enum Wordpress {
         }
         
         func execute(with site: JekyllSite) throws -> XMLRPCMethodResult {
-            var p = JekyllPost(post)
-            p.id = postID
-            return try site.editPost(p, publish: true)
+            var existing = try site.getPost(postID)
+            existing.update(from: post)
+            try site.editPost(existing, publish: true)
+            return true
         }
     }
+
     struct GetPost: XMLRPCMethod {
         typealias XMLRPCMethodResult = Post
         static let methodCalls: Set<String> = ["wp.getPost"]
@@ -194,7 +199,7 @@ enum Wordpress {
             var posts = site.allPosts()
             if let kind = filter.post_type { posts = posts.filter { $0.kind == kind } }
             if let status = filter.post_status { posts = posts.filter { $0.status == status } }
-            
+
             var slice = posts[...]
             if let offset = filter.offset {
                 slice = slice.dropFirst(offset)
@@ -202,6 +207,7 @@ enum Wordpress {
             if let number = filter.number {
                 slice = slice.prefix(number)
             }
+
             return slice.map { Post($0) }
         }
     }
@@ -280,7 +286,13 @@ enum Wordpress {
             if let offset = filter?.offset { slice = slice.dropFirst(offset) }
             if let number = filter?.number { slice = slice.prefix(number) }
             return slice.map {
-                MediaItem(attachment_id: $0.name, link: $0.siteURL, title: $0.name, caption: $0.name, description: $0.name)
+                MediaItem(
+                    attachment_id: $0.relativePath,
+                    link: site.webBase.appending(path: $0.relativePath).absoluteString,
+                    thumbnail: site.webBase.appending(path: $0.relativePath).absoluteString,
+                    title: $0.name,
+                    caption: $0.name,
+                    description: $0.name)
             }
         }
     }
@@ -336,21 +348,26 @@ extension Wordpress {
     }
     struct Post: Codable {
         let post_id: String?
-        let post_title: String
+        let post_title: String?
+        let post_date: Date?
         let post_date_gmt: Date?
+        let post_modified: Date?
+        let post_modified_gmt: Date?
         let post_type: String
         let post_status: String
         let post_author: String
         let post_content: String
+        let post_name: String?
         let terms: Array<Term>
     }
     struct SavePost: Decodable {
         let post_id: String?
-        let post_title: String
+        let post_title: String?
         let post_date_gmt: Date?
         let post_type: String?
         let post_status: String
         let post_content: String
+        let post_name: String?
         let terms_names: Dictionary<String, Array<String>>?
     }
     struct Term: Codable {
@@ -362,33 +379,38 @@ extension Wordpress {
     struct MediaItem: Encodable {
         let attachment_id: String
         let link: String
+        let thumbnail: String
         let title: String
         let caption: String
         let description: String
     }
 }
 
-extension Wordpress.Post {
+fileprivate extension Wordpress.Post {
     init(_ p: JekyllPost) {
         post_id = p.id
         post_title = p.title
         post_date_gmt = p.publishedDate
+        post_date = p.publishedDate
+        post_modified = p.editedDate
+        post_modified_gmt = p.editedDate
         post_type = p.kind.rawValue
         post_status = p.status.rawValue
         post_author = "0"
         post_content = p.body
+        post_name = p.slug
         terms = p.tags.map { Wordpress.Term(term_id: $0, name: $0, slug: $0.slugified()) }
     }
 }
-extension JekyllPost {
-    init(_ p: Wordpress.SavePost) {
-        self.init()
+
+fileprivate extension JekyllPost {
+    mutating func update(from p: Wordpress.SavePost) {
         title = p.post_title
-        id = p.post_id ?? title.slugified()
         publishedDate = p.post_date_gmt
-        kind = p.post_type.flatMap { Kind(rawValue: $0) } ?? .post
-        status = Status(rawValue: p.post_status) ?? .publish
+        kind = p.post_type.flatMap { Kind(rawValue: $0) } ?? kind
+        status = Status(rawValue: p.post_status) ?? status
         body = p.post_content
-        tags = p.terms_names?["post_tag"] ?? []
+        slug = p.post_name ?? slug
+        tags = p.terms_names?["post_tag"] ?? tags
     }
 }

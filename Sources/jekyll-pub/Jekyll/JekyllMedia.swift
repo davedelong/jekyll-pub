@@ -17,15 +17,14 @@ struct JekyllMedia: Decodable {
 struct JekyllMediaResult: Encodable {
     let name: String
     let type: String
-    let siteURL: String
+
+    // Path relative to site root. I'm assuming this is also the path
+    // relative to the web root
+    let relativePath: String
     
-    init(url: URL) {
+    init(url: URL, root: URL) {
         name = url.lastPathComponent
-        let components = url.pathComponents
-        let _files = components.lastIndex(of: "_files")!
-        let pieces = components.dropFirst(_files + 1)
-        siteURL = "/files/" + pieces.joined(separator: "/")
-        
+        relativePath = url.absoluteString.replacing(root.absoluteString, with: "")
         let tag = url.pathExtension
         let cfTypes = UTTypeCreateAllIdentifiersForTag(kUTTagClassFilenameExtension, tag as CFString, nil)?.takeRetainedValue()
         let types = (cfTypes as? Array<String>) ?? []
@@ -37,6 +36,6 @@ struct JekyllMediaResult: Encodable {
         try c.encode(name, forKey: "id")
         try c.encode(name, forKey: "file")
         try c.encode(type, forKey: "type")
-        try c.encode(siteURL, forKey: "url")
+        try c.encode(relativePath, forKey: "url")
     }
 }
