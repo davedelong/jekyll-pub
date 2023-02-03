@@ -12,10 +12,12 @@ class XMLRPCServer {
     let server = HttpServer()
     
     private let site: JekyllSite
+    private let port: in_port_t
     private var xmlrpcRoutes = Array<XMLRPCRoute>()
     
-    init(site: JekyllSite) {
+    init(site: JekyllSite, port: in_port_t = 9080) {
         self.site = site
+        self.port = port
         server.post["/"] = self.handleXMLRPC
         
         addRouteHandler(MetaWeblog.GetCategories.self)
@@ -41,8 +43,8 @@ class XMLRPCServer {
     }
     
     func run() throws {
-        print("Serving files from \(site.rootFolder.path)")
-        try server.start(9080, forceIPv4: false, priority: .userInteractive)
+        try server.start(port, forceIPv4: false, priority: .userInteractive)
+        print("Serving files from \(site.rootFolder.path) on port \(port)")
         dispatchMain()
     }
     
