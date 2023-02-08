@@ -84,7 +84,7 @@ extension JekyllSite {
             guard post.id == id else { continue }
             guard let url = post.fileURL else { continue }
             do {
-                try FileManager.default.removeItem(at: url)
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
                 return true
             } catch {
                 continue
